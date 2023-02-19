@@ -12,3 +12,4 @@ class Modality(Enum):
     AUDIO = auto()
     IMAGE = auto()
     TEXT = auto()
+    SPECTROGRAM = auto()
