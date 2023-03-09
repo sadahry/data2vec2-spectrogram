@@ -1,4 +1,4 @@
-# Based on data2vec 2.0 https://github.com/facebookresearch/fairseq/blob/d871f6169f8185837d1c11fb28da56abfd83841c/fairseq/tasks/audio_pretraining.py
+# Based on data2vec 2.0 https://github.com/facebookresearch/fairseq/blob/d871f6169f8185837d1c11fb28da56abfd83841c/fairseq/tasks/spectrogram_pretraining.py
 #
 # This source code is licensed under the license found in the LICENSE file in
 # the root directory of this source tree. An additional grant of patent rights
@@ -24,20 +24,20 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class AudioMaskingConfig:
-    feature_encoder_spec: str = II("model.modalities.audio.feature_encoder_spec")
-    mask_prob: float = II("model.modalities.audio.mask_prob")
-    mask_prob_adjust: float = II("model.modalities.audio.mask_prob_adjust")
-    mask_length: int = II("model.modalities.audio.mask_length")
-    inverse_mask: bool = II("model.modalities.audio.inverse_mask")
-    mask_dropout: float = II("model.modalities.audio.mask_dropout")
+class SpectrogramMaskingConfig:
+    feature_encoder_spec: str = II("model.modalities.spectrogram.feature_encoder_spec")
+    mask_prob: float = II("model.modalities.spectrogram.mask_prob")
+    mask_prob_adjust: float = II("model.modalities.spectrogram.mask_prob_adjust")
+    mask_length: int = II("model.modalities.spectrogram.mask_length")
+    inverse_mask: bool = II("model.modalities.spectrogram.inverse_mask")
+    mask_dropout: float = II("model.modalities.spectrogram.mask_dropout")
     clone_batch: int = II("model.clone_batch")
     expand_adjacent: bool = False
     non_overlapping: bool = False
 
 
 @dataclass
-class AudioPretrainingConfig(FairseqDataclass):
+class SpectrogramPretrainingConfig(FairseqDataclass):
     data: str = field(default=MISSING, metadata={"help": "path to data directory"})
     labels: Optional[str] = field(
         default=None,
@@ -53,7 +53,7 @@ class AudioPretrainingConfig(FairseqDataclass):
     sample_rate: int = field(
         default=16_000,
         metadata={
-            "help": "target sample rate. audio files will be up/down sampled to this rate"
+            "help": "target sample rate. spectrogram files will be up/down sampled to this rate"
         },
     )
     normalize: bool = field(
@@ -77,13 +77,13 @@ class AudioPretrainingConfig(FairseqDataclass):
     text_compression_level: ChoiceEnum([x.name for x in TextCompressionLevel]) = field(
         default="none",
         metadata={
-            "help": "compression level for texts (e.g. audio filenames, "
+            "help": "compression level for texts (e.g. spectrogram filenames, "
             "target texts): none/low/high (default: none). "
         },
     )
 
     rebuild_batches: bool = True
-    precompute_mask_config: Optional[AudioMaskingConfig] = None
+    precompute_mask_config: Optional[SpectrogramMaskingConfig] = None
 
     post_save_script: Optional[str] = None
 
@@ -91,18 +91,18 @@ class AudioPretrainingConfig(FairseqDataclass):
     seed: int = II("common.seed")
 
 
-@register_task("audio_pretraining", dataclass=AudioPretrainingConfig)
-class AudioPretrainingTask(FairseqTask):
+@register_task("spectrogram_pretraining", dataclass=SpectrogramPretrainingConfig)
+class SpectrogramPretrainingTask(FairseqTask):
     """ """
 
-    cfg: AudioPretrainingConfig
+    cfg: SpectrogramPretrainingConfig
 
     @classmethod
-    def setup_task(cls, cfg: AudioPretrainingConfig, **kwargs):
+    def setup_task(cls, cfg: SpectrogramPretrainingConfig, **kwargs):
         """Setup the task (e.g., load dictionaries).
 
         Args:
-            cfg (AudioPretrainingConfig): configuration of this task
+            cfg (SpectrogramPretrainingConfig): configuration of this task
         """
 
         return cls(cfg)
