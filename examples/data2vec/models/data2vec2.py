@@ -48,6 +48,10 @@ from examples.data2vec.models.modalities.text import (
     D2vTextConfig,
     TextEncoder,
 )
+from examples.data2vec.models.modalities.spectrogram import (
+    D2vSpectrogramConfig,
+    SpectrogramEncoder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,7 @@ class D2vModalitiesConfig(FairseqDataclass):
     audio: D2vAudioConfig = D2vAudioConfig()
     image: D2vImageConfig = D2vImageConfig()
     text: D2vTextConfig = D2vTextConfig()
+    spectrogram: D2vSpectrogramConfig = D2vSpectrogramConfig()
 
 
 @dataclass
@@ -167,6 +172,8 @@ class Data2VecMultiModel(BaseFairseqModel):
             enc_cls = TextEncoder
             if hasattr(task, "text_task"):
                 task = task.text_task
+        elif cfg.type == Modality.SPECTROGRAM:
+            enc_cls = SpectrogramEncoder
         else:
             raise Exception(f"unsupported modality {cfg.type}")
 
