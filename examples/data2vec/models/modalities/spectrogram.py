@@ -22,8 +22,8 @@ from examples.data2vec.data.modality import Modality
 
 
 @dataclass
-class D2vAudioConfig(D2vModalityConfig):
-    type: Modality = Modality.AUDIO
+class D2vSpectrogramConfig(D2vModalityConfig):
+    type: Modality = Modality.SPECTROGRAM
     extractor_mode: str = "layer_norm"
     feature_encoder_spec: str = field(
         default="[(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512,2,2)] + [(512,2,2)]",
@@ -47,13 +47,13 @@ class D2vAudioConfig(D2vModalityConfig):
     conv_pos_pre_ln: bool = False
 
 
-class AudioEncoder(ModalitySpecificEncoder):
+class SpectrogramEncoder(ModalitySpecificEncoder):
 
-    modality_cfg: D2vAudioConfig
+    modality_cfg: D2vSpectrogramConfig
 
     def __init__(
         self,
-        modality_cfg: D2vAudioConfig,
+        modality_cfg: D2vSpectrogramConfig,
         embed_dim: int,
         make_block: Callable[[float], nn.ModuleList],
         norm_layer: Callable[[int], nn.LayerNorm],
