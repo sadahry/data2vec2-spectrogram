@@ -117,10 +117,6 @@ class SpectrogramPretrainingTask(FairseqTask):
             if not hasattr(task_cfg, "autoregressive"):
                 task_cfg.autoregressive = not task_cfg.criterion == "ctc"
 
-        text_compression_level = getattr(
-            TextCompressionLevel, str(self.cfg.text_compression_level)
-        )
-
         compute_mask = task_cfg.precompute_mask_config is not None
         mask_args = {}
         if compute_mask:
@@ -134,11 +130,8 @@ class SpectrogramPretrainingTask(FairseqTask):
             max_sample_size=self.cfg.max_sample_size,
             min_sample_size=self.cfg.min_sample_size,
             pad=task_cfg.labels is not None or task_cfg.enable_padding,
-            # normalize=task_cfg.normalize,
-            # num_buckets=self.cfg.num_batch_buckets or int(self.cfg.tpu),
-            # text_compression_level=text_compression_level,
-            # compute_mask=compute_mask,
-            # **mask_args,
+            compute_mask=compute_mask,
+            **mask_args,
         )
 
         if self.cfg.tpu and task_cfg.inferred_w2v_config.mask_channel_prob == 0.0:
