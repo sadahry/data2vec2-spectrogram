@@ -8,12 +8,13 @@ import logging
 import os
 import sys
 
+from examples.data2vec.data.spectrogram_dataset import FileSpectrogramDataset
+
 from argparse import Namespace
 from dataclasses import dataclass, field
 from typing import Optional
 from omegaconf import MISSING, II
 
-from fairseq.data import BinarizedAudioDataset, FileAudioDataset, SubsampleDataset
 from fairseq.dataclass import FairseqDataclass, ChoiceEnum
 from fairseq.data.text_compressor import TextCompressionLevel
 
@@ -125,42 +126,20 @@ class SpectrogramPretrainingTask(FairseqTask):
         if compute_mask:
             mask_args = task_cfg.precompute_mask_config
 
-        if getattr(task_cfg, "binarized_dataset", False):
-            self.datasets[split] = BinarizedAudioDataset(
-                data_path,
-                split=split,
-                sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
-                max_sample_size=self.cfg.max_sample_size,
-                min_sample_size=self.cfg.min_sample_size,
-                pad=task_cfg.labels is not None or task_cfg.enable_padding,
-                normalize=task_cfg.normalize,
-                num_buckets=self.cfg.num_batch_buckets or int(self.cfg.tpu),
-                compute_mask=compute_mask,
-                **mask_args,
-            )
-        else:
-            manifest_path = os.path.join(data_path, "{}.tsv".format(split))
+        manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
-            self.datasets[split] = FileAudioDataset(
-                manifest_path=manifest_path,
-                sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
-                max_sample_size=self.cfg.max_sample_size,
-                min_sample_size=self.cfg.min_sample_size,
-                pad=task_cfg.labels is not None or task_cfg.enable_padding,
-                normalize=task_cfg.normalize,
-                num_buckets=self.cfg.num_batch_buckets or int(self.cfg.tpu),
-                text_compression_level=text_compression_level,
-                compute_mask=compute_mask,
-                **mask_args,
-            )
-
-        if getattr(task_cfg, "subsample", 1) < 1:
-            self.datasets[split] = SubsampleDataset(
-                self.datasets[split],
-                task_cfg.subsample,
-                shuffle=True,
-                seed=task_cfg.seed,
-            )
+        self.datasets[split] = FileSpectrogramDataset(
+            manifest_path=manifest_path,
+            sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
+            max_sample_size=self.cfg.max_sample_size,
+            min_sample_size=self.cfg.min_sample_size,
+            pad=task_cfg.labels is not None or task_cfg.enable_padding,
+            # normalize=task_cfg.normalize,
+            # num_buckets=self.cfg.num_batch_buckets or int(self.cfg.tpu),
+            # text_compression_level=text_compression_level,
+            # compute_mask=compute_mask,
+            # **mask_args,
+        )
 
         if self.cfg.tpu and task_cfg.inferred_w2v_config.mask_channel_prob == 0.0:
             logger.info(
