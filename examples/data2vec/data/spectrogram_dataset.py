@@ -13,7 +13,7 @@ from fairseq.data import FileAudioDataset
 logger = logging.getLogger(__name__)
 
 
-class SpectrogramDataset(FileAudioDataset):
+class FileSpectrogramDataset(FileAudioDataset):
     def __init__(
         self,
         manifest_path,
