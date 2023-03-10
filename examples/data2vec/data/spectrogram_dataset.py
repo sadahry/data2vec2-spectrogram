@@ -34,6 +34,7 @@ class FileSpectrogramDataset(FileAudioDataset):
 
     def __getitem__(self, index):
         fname = self.fnames[index]
+        fname = self.text_compressor.decompress(fname)
         fpath = os.path.join(self.root_dir, fname)
 
         retry = 3
