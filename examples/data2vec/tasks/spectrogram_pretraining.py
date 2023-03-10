@@ -17,7 +17,7 @@ from fairseq.data import BinarizedAudioDataset, FileAudioDataset, SubsampleDatas
 from fairseq.dataclass import FairseqDataclass, ChoiceEnum
 from fairseq.data.text_compressor import TextCompressionLevel
 
-from . import FairseqTask, register_task
+from fairseq.tasks import FairseqTask, register_task
 
 
 logger = logging.getLogger(__name__)
