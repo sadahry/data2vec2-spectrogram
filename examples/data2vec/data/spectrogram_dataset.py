@@ -50,4 +50,6 @@ class FileSpectrogramDataset(FileAudioDataset):
         if feats is None:
             raise Exception(f"Failed to load {fpath}")
 
-        return feats
+        v = {"id": index, "source": feats}
+
+        return v
