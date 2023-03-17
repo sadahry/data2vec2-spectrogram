@@ -130,8 +130,6 @@ class SpectrogramPretrainingTask(FairseqTask):
             max_sample_size=self.cfg.max_sample_size,
             min_sample_size=self.cfg.min_sample_size,
             pad=task_cfg.labels is not None or task_cfg.enable_padding,
-            compute_mask=compute_mask,
-            **mask_args,
         )
 
         if self.cfg.tpu and task_cfg.inferred_w2v_config.mask_channel_prob == 0.0:
