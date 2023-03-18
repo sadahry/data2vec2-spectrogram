@@ -33,6 +33,63 @@ class FileSpectrogramDataset(FileAudioDataset):
             pad=pad,
         )
 
+    def collater(self, samples):
+        samples = [s for s in samples if s["source"] is not None]
+        if len(samples) == 0:
+            return {}
+
+        sources = [s["source"] for s in samples]
+        sizes = [len(s) for s in sources]
+
+        if self.pad:
+            target_size = min(max(sizes), self.max_sample_size)
+        else:
+            target_size = min(min(sizes), self.max_sample_size)
+
+        collated_sources = sources[0].new_zeros(len(sources), target_size)
+        padding_mask = (
+            torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
+        )
+        for i, (source, size) in enumerate(zip(sources, sizes)):
+            diff = size - target_size
+            if diff == 0:
+                collated_sources[i] = source
+            elif diff < 0:
+                assert self.pad
+                collated_sources[i] = torch.cat(
+                    [source, source.new_full((-diff,), 0.0)]
+                )
+                padding_mask[i, diff:] = True
+            else:
+                collated_sources[i] = self.crop_to_max_size(source, target_size)
+
+        input = {"source": collated_sources}
+        out = {"id": torch.LongTensor([s["id"] for s in samples])}
+        if self.pad:
+            input["padding_mask"] = padding_mask
+
+        if hasattr(self, "num_buckets") and self.num_buckets > 0:
+            assert self.pad, "Cannot bucket without padding first."
+            bucket = max(self._bucketed_sizes[s["id"]] for s in samples)
+            num_pad = bucket - collated_sources.size(-1)
+            if num_pad:
+                input["source"] = self._bucket_tensor(collated_sources, num_pad, 0)
+                input["padding_mask"] = self._bucket_tensor(padding_mask, num_pad, True)
+
+        if "precomputed_mask" in samples[0]:
+            target_size = self._get_mask_indices_dims(target_size)
+            collated_mask = torch.cat(
+                [
+                    self.crop_to_max_size(s["precomputed_mask"], target_size, dim=1)
+                    for s in samples
+                ],
+                dim=0,
+            )
+            input["precomputed_mask"] = collated_mask
+
+        out["net_input"] = input
+        return out
+
     def __getitem__(self, index):
         fname = self.fnames[index]
         fname = self.text_compressor.decompress(fname)
