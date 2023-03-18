@@ -7,6 +7,7 @@ import os
 import logging
 import time
 import numpy as np
+import torch
 from fairseq.data import FileAudioDataset
 
 
@@ -49,6 +50,8 @@ class FileSpectrogramDataset(FileAudioDataset):
 
         if feats is None:
             raise Exception(f"Failed to load {fpath}")
+
+        feats = torch.from_numpy(feats).float()
 
         v = {"id": index, "source": feats}
 
