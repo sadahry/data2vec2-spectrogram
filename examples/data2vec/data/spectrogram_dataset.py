@@ -18,7 +18,6 @@ class FileSpectrogramDataset(FileAudioDataset):
     def __init__(
         self,
         manifest_path,
-        sample_rate,
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
@@ -26,7 +25,7 @@ class FileSpectrogramDataset(FileAudioDataset):
     ):
         super().__init__(
             manifest_path=manifest_path,
-            sample_rate=sample_rate,
+            sample_rate=0,  # will not use sample_rate
             max_sample_size=max_sample_size,
             min_sample_size=min_sample_size,
             shuffle=shuffle,

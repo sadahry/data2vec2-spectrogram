@@ -126,7 +126,6 @@ class SpectrogramPretrainingTask(FairseqTask):
 
         self.datasets[split] = FileSpectrogramDataset(
             manifest_path=manifest_path,
-            sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
             max_sample_size=self.cfg.max_sample_size,
             min_sample_size=self.cfg.min_sample_size,
             pad=task_cfg.labels is not None or task_cfg.enable_padding,
