@@ -65,7 +65,7 @@ class FileSpectrogramDataset(FileAudioDataset):
             elif diff < 0:
                 assert self.pad
                 collated_sources[i] = torch.cat(
-                    [source, source.new_full((-diff,), 0.0)]
+                    [source, source.new_full((-diff, *source.shape[1:]), 0.0)]
                 )
                 padding_mask[i, diff:] = True
             else:
