@@ -68,14 +68,6 @@ class FileSpectrogramDataset(FileAudioDataset):
         if self.pad:
             input["padding_mask"] = padding_mask
 
-        if hasattr(self, "num_buckets") and self.num_buckets > 0:
-            assert self.pad, "Cannot bucket without padding first."
-            bucket = max(self._bucketed_sizes[s["id"]] for s in samples)
-            num_pad = bucket - collated_sources.size(-1)
-            if num_pad:
-                input["source"] = self._bucket_tensor(collated_sources, num_pad, 0)
-                input["padding_mask"] = self._bucket_tensor(padding_mask, num_pad, True)
-
         out["net_input"] = input
         return out
 
