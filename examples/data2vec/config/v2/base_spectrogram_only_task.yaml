@@ -18,7 +18,7 @@ checkpoint:
 task:
   _name: spectrogram_pretraining
   data: /private/home/abaevski/data/librispeech/full
-  max_sample_size: 320000
+  max_sample_size: 250000 # same as MAE-AST
   min_sample_size: 32000
   normalize: true
   precompute_mask_config: {}
