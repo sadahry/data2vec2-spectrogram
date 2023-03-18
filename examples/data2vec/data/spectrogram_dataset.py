@@ -46,11 +46,17 @@ class FileSpectrogramDataset(FileAudioDataset):
         else:
             target_size = min(min(sizes), self.max_sample_size)
 
+        source_dim = None
         collated_sources = sources[0].new_zeros(len(sources), target_size)
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
         for i, (source, size) in enumerate(zip(sources, sizes)):
+            # get channel dimension of source
+            _, C = source.shape
+            source_dim = C if source_dim is None else source_dim
+            assert source_dim == C, "source dim shuld be the same between batches"
+
             diff = size - target_size
             if diff == 0:
                 collated_sources[i] = source
