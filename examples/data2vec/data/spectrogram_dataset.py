@@ -8,6 +8,7 @@ import logging
 import time
 import numpy as np
 import torch
+import torch.nn.functional as F
 from fairseq.data import FileAudioDataset
 
 
@@ -97,6 +98,9 @@ class FileSpectrogramDataset(FileAudioDataset):
             raise Exception(f"Failed to load {fpath}")
 
         feats = torch.from_numpy(feats).float()
+        if self.normalize:
+            with torch.no_grad():
+                feats = F.layer_norm(feats, feats.shape)
 
         v = {"id": index, "source": feats}
 
