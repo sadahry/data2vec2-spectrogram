@@ -76,17 +76,6 @@ class FileSpectrogramDataset(FileAudioDataset):
                 input["source"] = self._bucket_tensor(collated_sources, num_pad, 0)
                 input["padding_mask"] = self._bucket_tensor(padding_mask, num_pad, True)
 
-        if "precomputed_mask" in samples[0]:
-            target_size = self._get_mask_indices_dims(target_size)
-            collated_mask = torch.cat(
-                [
-                    self.crop_to_max_size(s["precomputed_mask"], target_size, dim=1)
-                    for s in samples
-                ],
-                dim=0,
-            )
-            input["precomputed_mask"] = collated_mask
-
         out["net_input"] = input
         return out
 
