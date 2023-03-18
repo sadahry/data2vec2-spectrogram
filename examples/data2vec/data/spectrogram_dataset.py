@@ -47,7 +47,9 @@ class FileSpectrogramDataset(FileAudioDataset):
             target_size = min(min(sizes), self.max_sample_size)
 
         source_dim = None
-        collated_sources = sources[0].new_zeros(len(sources), target_size)
+        collated_sources = sources[0].new_zeros(
+            len(sources), target_size, *sources[0].shape[1:]
+        )
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
