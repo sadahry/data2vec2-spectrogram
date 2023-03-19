@@ -64,10 +64,16 @@ class FileSpectrogramDataset(FileAudioDataset):
                 collated_sources[i] = source
             elif diff < 0:
                 assert self.pad
+                # exclude data to adjust patch
+                mod = size % self.patch_size
+                mod_offset = None if mod == 0 else -mod
                 collated_sources[i] = torch.cat(
-                    [source, source.new_full((-diff, *source.shape[1:]), 0.0)]
+                    [
+                        source[:mod_offset],
+                        source.new_full((mod - diff, *source.shape[1:]), 0.0),
+                    ]
                 )
-                padding_mask[i, diff:] = True
+                padding_mask[i, -(mod - diff) :] = True
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)
 
