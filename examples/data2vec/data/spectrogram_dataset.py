@@ -8,6 +8,7 @@ import logging
 import time
 import numpy as np
 import torch
+from torch import nn
 import torch.nn.functional as F
 from fairseq.data import FileAudioDataset
 
@@ -23,6 +24,8 @@ class FileSpectrogramDataset(FileAudioDataset):
         min_sample_size=0,
         shuffle=True,
         pad=False,
+        patch_size=2,
+        patch_channel_dim=128,
     ):
         super().__init__(
             manifest_path=manifest_path,
@@ -32,6 +35,23 @@ class FileSpectrogramDataset(FileAudioDataset):
             shuffle=shuffle,
             pad=pad,
         )
+        self.patch_size = patch_size
+        self.patch_channel_dim = patch_channel_dim
+        self.batch_norm = nn.BatchNorm2d(num_features=1, affine=False)
+        self.unfold = nn.Unfold(
+            kernel_size=(patch_size, patch_channel_dim),
+            stride=(patch_size, patch_channel_dim),
+        )
+
+    def reshape_sources_to_patch(self, sources):
+        with torch.no_grad():
+            # Batch normalization ('Mimics' AST dataset normalization)
+            _sources = sources.unsqueeze(1)
+            _sources = self.batch_norm(_sources) * 0.5  # Mean 0, St dev 0.5
+            # Create image patches for masking via Unfold. BTC input shape BTC output shape
+            # Output continues to be unsqueezed from batch norm
+            patched_sources = self.unfold(_sources).transpose(-1, -2)
+        return patched_sources
 
     def collater(self, samples):
         samples = [s for s in samples if s["source"] is not None]
@@ -71,7 +91,10 @@ class FileSpectrogramDataset(FileAudioDataset):
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)
 
-        input = {"source": collated_sources}
+        # pre-patch sources
+        patched_sources = self.reshape_sources_to_patch(collated_sources)
+
+        input = {"source": patched_sources}
         out = {"id": torch.LongTensor([s["id"] for s in samples])}
         if self.pad:
             input["padding_mask"] = padding_mask
