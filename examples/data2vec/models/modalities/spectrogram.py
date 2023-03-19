@@ -30,8 +30,8 @@ from examples.data2vec.data.modality import Modality
 
 
 @dataclass
-class D2vImageConfig(D2vModalityConfig):
-    type: Modality = Modality.IMAGE
+class D2vSpectrogramConfig(D2vModalityConfig):
+    type: Modality = Modality.SPECTROGRAM
 
     input_size: int = 224
     in_chans: int = 3
@@ -47,13 +47,13 @@ class D2vImageConfig(D2vModalityConfig):
     enc_dec_transformer: bool = False
 
 
-class ImageEncoder(ModalitySpecificEncoder):
+class SpectrogramEncoder(ModalitySpecificEncoder):
 
-    modality_cfg: D2vImageConfig
+    modality_cfg: D2vSpectrogramConfig
 
     def __init__(
         self,
-        modality_cfg: D2vImageConfig,
+        modality_cfg: D2vSpectrogramConfig,
         embed_dim: int,
         make_block: Callable[[float, Optional[int], Optional[int]], nn.ModuleList],
         norm_layer: Callable[[int], nn.LayerNorm],
