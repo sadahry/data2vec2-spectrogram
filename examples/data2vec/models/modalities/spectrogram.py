@@ -10,9 +10,8 @@ import numpy as np
 from functools import partial
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
-from timm.models.layers import to_2tuple
 from fairseq.tasks import FairseqTask
-from examples.data2vec.models.mae import get_2d_sincos_pos_embed, PatchEmbed
+from examples.data2vec.models.mae import get_2d_sincos_pos_embed
 from .base import (
     D2vModalityConfig,
     ModalitySpecificEncoder,
@@ -33,8 +32,7 @@ from examples.data2vec.data.modality import Modality
 class D2vSpectrogramConfig(D2vModalityConfig):
     type: Modality = Modality.SPECTROGRAM
 
-    input_size: int = 224
-    in_chans: int = 3
+    patch_channel_dim: int = 128
     patch_size: int = 16
     embed_dim: int = 768
 
@@ -45,6 +43,43 @@ class D2vSpectrogramConfig(D2vModalityConfig):
 
     transformer_decoder: bool = False
     enc_dec_transformer: bool = False
+
+
+class SpectrogramPatchEmbed(nn.Module):
+    """2D Spectrogram to Patch Embedding"""
+
+    def __init__(
+        self,
+        patch_size=2,
+        patch_channel_dim=128,
+        embed_dim=768,
+        bias=True,
+    ):
+        super().__init__()
+        self.proj = nn.Conv2d(
+            1,
+            embed_dim,
+            kernel_size=(patch_channel_dim, patch_size),
+            stride=(patch_channel_dim, patch_size),
+            bias=bias,
+        )
+        self.norm = nn.LayerNorm(embed_dim)
+        self.patch_channel_dim = patch_channel_dim
+
+    def forward(self, x):
+        assert len(x.shape) == 3, "must be Batch,Time,Channel"
+        assert (
+            x.size(-1) % self.patch_channel_dim == 0
+        ), "must be divided by patch_channel_dim"
+
+        x = x.unsqueeze(1).transpose(-1, -2)
+        # faster logic for Spectrogram
+        x = self.proj(x).squeeze(2).transpose(-1, -2)
+        # x = self.proj(x).transpose(-1, -2)
+        # if self.flatten:
+        #     x = x.flatten(2).transpose(1, 2)  # B1CT -> BTC
+        x = self.norm(x)
+        return x
 
 
 class SpectrogramEncoder(ModalitySpecificEncoder):
@@ -62,14 +97,9 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
         task: Optional[FairseqTask],
     ):
 
-        img_size = to_2tuple(modality_cfg.input_size)
-        patch_size = to_2tuple(modality_cfg.patch_size)
-        num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
-
-        local_encoder = PatchEmbed(
-            modality_cfg.input_size,
+        local_encoder = SpectrogramPatchEmbed(
             modality_cfg.patch_size,
-            modality_cfg.in_chans,
+            modality_cfg.patch_channel_dim,
             modality_cfg.embed_dim,
         )
 
@@ -84,6 +114,8 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
 
         project_features = nn.Identity()
 
+        # TODO rm this interim fix
+        num_patches = 100
         pos_embed = nn.Parameter(
             torch.zeros(1, num_patches, embed_dim), requires_grad=False
         )

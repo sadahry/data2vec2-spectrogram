@@ -20,8 +20,6 @@ task:
   data: /private/home/abaevski/data/librispeech/full
   max_sample_size: 250000 # same as MAE-AST
   min_sample_size: 32000
-  patch_channel_dim: 128
-  patch_size: 2
   normalize: true
   # enable_padding: true
   enable_padding: false
@@ -99,6 +97,8 @@ model:
       mask_length: 10
       mask_prob_adjust: 0.07
       mask_noise_std: 0.01
+      patch_channel_dim: 128
+      patch_size: 2
       prenet_depth: 2
       ema_local_encoder: true
       num_extra_tokens: 1

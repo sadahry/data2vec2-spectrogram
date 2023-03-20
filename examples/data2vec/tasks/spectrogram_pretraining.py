@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SpectrogramMaskingConfig:
-    feature_encoder_spec: str = II("model.modalities.spectrogram.feature_encoder_spec")
     mask_prob: float = II("model.modalities.spectrogram.mask_prob")
     mask_prob_adjust: float = II("model.modalities.spectrogram.mask_prob_adjust")
     mask_length: int = II("model.modalities.spectrogram.mask_length")
@@ -73,14 +72,6 @@ class SpectrogramPretrainingConfig(FairseqDataclass):
     num_batch_buckets: int = field(
         default=0,
         metadata={"help": "number of buckets"},
-    )
-    patch_channel_dim: int = field(
-        default=128,
-        metadata={"help": "number of patch_channel_dim"},
-    )
-    patch_size: int = field(
-        default=2,
-        metadata={"help": "number of patch_size"},
     )
     tpu: bool = II("common.tpu")
     text_compression_level: ChoiceEnum([x.name for x in TextCompressionLevel]) = field(
@@ -138,8 +129,6 @@ class SpectrogramPretrainingTask(FairseqTask):
             min_sample_size=self.cfg.min_sample_size,
             # TODO 一通り実装できてからpaddingに着手
             # pad=task_cfg.labels is not None or task_cfg.enable_padding,
-            patch_channel_dim=self.cfg.patch_channel_dim,
-            patch_size=self.cfg.patch_size,
         )
 
         if self.cfg.tpu and task_cfg.inferred_w2v_config.mask_channel_prob == 0.0:
