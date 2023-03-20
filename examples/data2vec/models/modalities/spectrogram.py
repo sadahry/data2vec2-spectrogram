@@ -11,17 +11,20 @@ from functools import partial
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Optional
 from fairseq.tasks import FairseqTask
-from examples.data2vec.models.mae import get_2d_sincos_pos_embed
 from .base import (
     D2vModalityConfig,
     ModalitySpecificEncoder,
     get_alibi_bias,
     MaskSeed,
 )
+from fairseq.modules import (
+    LayerNorm,
+    SamePad,
+    TransposeLast,
+)
 from .modules import (
     BlockEncoder,
     Decoder2d,
-    FixedPositionalEncoder,
     TransformerDecoder,
     EncDecTransformerDecoder,
 )
@@ -34,11 +37,13 @@ class D2vSpectrogramConfig(D2vModalityConfig):
 
     patch_channel_dim: int = field(
         default=128,
-        metadata={"help": "number of patch_channel_dim"},
+        metadata={
+            "help": "number of patch_channel_dim when reshaping spectrogram input"
+        },
     )
-    patch_sample_size: int = field(
+    patch_size: int = field(
         default=2,
-        metadata={"help": "number of patch_sample_size"},
+        metadata={"help": "number of patch_size when reshaping spectrogram input"},
     )
 
     embed_dim: int = 768
@@ -50,6 +55,20 @@ class D2vSpectrogramConfig(D2vModalityConfig):
 
     transformer_decoder: bool = False
     enc_dec_transformer: bool = False
+
+    # TODO Needs ablation study. These settings are bollowed from https://github.com/facebookresearch/fairseq/blob/d871f6169f8185837d1c11fb28da56abfd83841c/examples/data2vec/models/modalities/audio.py#L35-L46
+    conv_pos_width: int = field(
+        default=95,
+        metadata={"help": "number of filters for convolutional positional embeddings"},
+    )
+    conv_pos_groups: int = field(
+        default=16,
+        metadata={"help": "number of groups for convolutional positional embedding"},
+    )
+    conv_pos_depth: int = field(
+        default=5,
+        metadata={"help": "depth of positional encoder network"},
+    )
 
 
 class SpectrogramPatchEmbed(nn.Module):
@@ -121,22 +140,31 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
 
         project_features = nn.Identity()
 
-        # TODO rm this interim fix
-        num_patches = 100
-        pos_embed = nn.Parameter(
-            torch.zeros(1, num_patches, embed_dim), requires_grad=False
-        )
+        # conv as relative positional encoder
+        # TODO introduce Transformer-XL relative positional encoder
+        num_pos_layers = modality_cfg.conv_pos_depth
+        k = max(3, modality_cfg.conv_pos_width // num_pos_layers)
 
-        side_n = int(num_patches**0.5)
-
-        emb = get_2d_sincos_pos_embed(
-            pos_embed.shape[-1],
-            side_n,
-            cls_token=False,
-        )
-        pos_embed.data.copy_(torch.from_numpy(emb).float().unsqueeze(0))
-        fixed_positional_encoder = (
-            FixedPositionalEncoder(pos_embed) if modality_cfg.fixed_positions else None
+        positional_encoder = nn.Sequential(
+            TransposeLast(),
+            *[
+                nn.Sequential(
+                    nn.Conv1d(
+                        embed_dim,
+                        embed_dim,
+                        kernel_size=k,
+                        padding=k // 2,
+                        groups=modality_cfg.conv_pos_groups,
+                    ),
+                    SamePad(k),
+                    TransposeLast(),
+                    LayerNorm(embed_dim, elementwise_affine=False),
+                    TransposeLast(),
+                    nn.GELU(),
+                )
+                for _ in range(num_pos_layers)
+            ],
+            TransposeLast(),
         )
 
         dpr = np.linspace(
@@ -169,6 +197,8 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
                 )
                 decoder = TransformerDecoder(modality_cfg.decoder, embed_dim, dec_enc)
         else:
+            # TODO rm fixed params to be correct
+            side_n = 100
             decoder = (
                 Decoder2d(modality_cfg.decoder, embed_dim, side_n, side_n)
                 if modality_cfg.decoder is not None
@@ -188,8 +218,8 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
             embed_dim=embed_dim,
             local_encoder=local_encoder,
             project_features=project_features,
-            fixed_positional_encoder=fixed_positional_encoder,
-            relative_positional_encoder=None,
+            fixed_positional_encoder=None,
+            relative_positional_encoder=positional_encoder,
             context_encoder=context_encoder,
             decoder=decoder,
             get_alibi_bias=alibi_bias_fn,
