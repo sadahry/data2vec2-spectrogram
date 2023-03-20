@@ -294,6 +294,9 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
                 mask_dropout=self.modality_cfg.mask_dropout,
             )
 
+            # need to same device as x
+            mask = mask.to(device=x.get_device())
+
         mask_info = self.make_maskinfo(x, mask, shape)
         if apply:
             x = self.apply_mask(x, mask_info)
