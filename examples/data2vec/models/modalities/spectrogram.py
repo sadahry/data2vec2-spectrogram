@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from functools import partial
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Dict, Optional
 from fairseq.tasks import FairseqTask
 from examples.data2vec.models.mae import get_2d_sincos_pos_embed
@@ -32,8 +32,15 @@ from examples.data2vec.data.modality import Modality
 class D2vSpectrogramConfig(D2vModalityConfig):
     type: Modality = Modality.SPECTROGRAM
 
-    patch_channel_dim: int = 128
-    patch_size: int = 16
+    patch_channel_dim: int = field(
+        default=128,
+        metadata={"help": "number of patch_channel_dim"},
+    )
+    patch_sample_size: int = field(
+        default=2,
+        metadata={"help": "number of patch_sample_size"},
+    )
+
     embed_dim: int = 768
 
     alibi_dims: int = 2
