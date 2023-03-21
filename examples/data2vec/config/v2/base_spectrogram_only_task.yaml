@@ -18,8 +18,14 @@ checkpoint:
 task:
   _name: spectrogram_pretraining
   data: /private/home/abaevski/data/librispeech/full
-  max_sample_size: 250000 # same as MAE-AST
-  min_sample_size: 32000
+  # max_sample_size: 250000 # same as MAE-AST
+  # min_sample_size: 32000
+  # Convert definition of sample_size
+  # * sample_size = width of spectrogram = time frame count of spectrogram
+  # * should be window_size = 25[ms], frame_shift = 10[ms]
+  #   * in case of sample rate = 16000hz, window_size = 400[frame] and hop_length = 160[frame]
+  max_sample_size: 1562 # same as MAE-AST
+  min_sample_size: 200
   normalize: true
   # enable_padding: true
   enable_padding: false
