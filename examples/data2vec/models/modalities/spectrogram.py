@@ -24,9 +24,7 @@ from fairseq.modules import (
 )
 from .modules import (
     BlockEncoder,
-    Decoder2d,
-    TransformerDecoder,
-    EncDecTransformerDecoder,
+    Decoder1d,
 )
 from examples.data2vec.data.modality import Modality
 
@@ -181,29 +179,12 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
             modality_cfg.prenet_dropout,
         )
 
-        if modality_cfg.transformer_decoder:
-            if modality_cfg.enc_dec_transformer:
-                decoder = EncDecTransformerDecoder(modality_cfg.decoder, embed_dim)
-            else:
-                dec_enc = BlockEncoder(
-                    nn.ModuleList(
-                        make_block(0, modality_cfg.decoder.decoder_dim, 8)
-                        for _ in range(modality_cfg.decoder.decoder_layers)
-                    ),
-                    None,
-                    layer_norm_first,
-                    0,
-                    0,
-                )
-                decoder = TransformerDecoder(modality_cfg.decoder, embed_dim, dec_enc)
-        else:
-            # TODO rm fixed params to be correct
-            side_n = 100
-            decoder = (
-                Decoder2d(modality_cfg.decoder, embed_dim, side_n, side_n)
-                if modality_cfg.decoder is not None
-                else None
-            )
+        # TODO custom Decoder2d
+        decoder = (
+            Decoder1d(modality_cfg.decoder, embed_dim)
+            if modality_cfg.decoder is not None
+            else nn.Identity()
+        )
 
         alibi_bias_fn = partial(
             get_alibi_bias,
