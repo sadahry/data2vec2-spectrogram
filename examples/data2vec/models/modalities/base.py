@@ -398,7 +398,8 @@ class ModalitySpecificEncoder(nn.Module):
                         indices=mask_seed.ids if mask_seed is not None else None,
                     )
 
-                    mask = torch.from_numpy(mask).to(device=x.device)
+                    mask = torch.from_numpy(mask).to(device=x.device, dtype=torch.int16)
+
                     if self.modality_cfg.inverse_mask:
                         mask = 1 - mask
                     mask_info = self.make_maskinfo(x, mask)
