@@ -240,49 +240,50 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
         imgs = x.reshape(shape=(x.shape[0], 3, h * p, h * p))
         return imgs
 
-    def compute_mask(
-        self,
-        x,
-        padding_mask,
-        mask_seed: Optional[MaskSeed],
-        apply,
-        shape=None,
-        precomputed_mask=None,
-    ):
-        mlen = self.modality_cfg.mask_length
-        if mlen <= 1:
-            return super().compute_mask(
-                x, padding_mask, mask_seed, apply, precomputed_mask
-            )
+    # TODO compute_mask 2d
+    # def compute_mask(
+    #     self,
+    #     x,
+    #     padding_mask,
+    #     mask_seed: Optional[MaskSeed],
+    #     apply,
+    #     shape=None,
+    #     precomputed_mask=None,
+    # ):
+    #     mlen = self.modality_cfg.mask_length
+    #     if mlen <= 1:
+    #         return super().compute_mask(
+    #             x, padding_mask, mask_seed, apply, precomputed_mask
+    #         )
 
-        if precomputed_mask is not None:
-            mask = precomputed_mask
-        else:
-            from fairseq.data.data_utils import compute_block_mask_2d
+    #     if precomputed_mask is not None:
+    #         mask = precomputed_mask
+    #     else:
+    #         from fairseq.data.data_utils import compute_block_mask_2d
 
-            if shape is not None:
-                B, L, D = shape
-            else:
-                B, L, D = x.shape
+    #         if shape is not None:
+    #             B, L, D = shape
+    #         else:
+    #             B, L, D = x.shape
 
-            mask = compute_block_mask_2d(
-                shape=(B, L),
-                mask_prob=self.modality_cfg.mask_prob,
-                mask_length=self.modality_cfg.mask_length,
-                mask_prob_adjust=self.modality_cfg.mask_prob_adjust,
-                inverse_mask=self.modality_cfg.inverse_mask,
-                require_same_masks=True,
-                mask_dropout=self.modality_cfg.mask_dropout,
-            )
+    #         mask = compute_block_mask_2d(
+    #             shape=(B, L),
+    #             mask_prob=self.modality_cfg.mask_prob,
+    #             mask_length=self.modality_cfg.mask_length,
+    #             mask_prob_adjust=self.modality_cfg.mask_prob_adjust,
+    #             inverse_mask=self.modality_cfg.inverse_mask,
+    #             require_same_masks=True,
+    #             mask_dropout=self.modality_cfg.mask_dropout,
+    #         )
 
-            # need to same device as x
-            mask = mask.to(device=x.get_device())
+    #         # need to same device as x
+    #         mask = mask.to(device=x.get_device())
 
-        mask_info = self.make_maskinfo(x, mask, shape)
-        if apply:
-            x = self.apply_mask(x, mask_info)
+    #     mask_info = self.make_maskinfo(x, mask, shape)
+    #     if apply:
+    #         x = self.apply_mask(x, mask_info)
 
-        return x, mask_info
+    #     return x, mask_info
 
     def decoder_input(self, x, mask_info):
         if (
