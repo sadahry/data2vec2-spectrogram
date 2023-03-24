@@ -1,4 +1,4 @@
-# Based on https://github.com/facebookresearch/fairseq/blob/d871f6169f8185837d1c11fb28da56abfd83841c/examples/data2vec/models/modalities/images.py
+# Based on https://github.com/facebookresearch/fairseq/blob/d871f6169f8185837d1c11fb28da56abfd83841c/examples/data2vec/models/modalities/audio.py
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
@@ -46,15 +46,8 @@ class D2vSpectrogramConfig(D2vModalityConfig):
 
     embed_dim: int = 768
 
-    alibi_dims: int = 2
-    alibi_distance: str = "manhattan"
+    extractor_mode: str = "layer_norm"
 
-    fixed_positions: bool = True
-
-    transformer_decoder: bool = False
-    enc_dec_transformer: bool = False
-
-    # TODO Needs ablation study. These settings are bollowed from https://github.com/facebookresearch/fairseq/blob/d871f6169f8185837d1c11fb28da56abfd83841c/examples/data2vec/models/modalities/audio.py#L35-L46
     conv_pos_width: int = field(
         default=95,
         metadata={"help": "number of filters for convolutional positional embeddings"},
@@ -67,6 +60,7 @@ class D2vSpectrogramConfig(D2vModalityConfig):
         default=5,
         metadata={"help": "depth of positional encoder network"},
     )
+    conv_pos_pre_ln: bool = False
 
 
 class SpectrogramPatchEmbed(nn.Module):
@@ -114,7 +108,7 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
         self,
         modality_cfg: D2vSpectrogramConfig,
         embed_dim: int,
-        make_block: Callable[[float, Optional[int], Optional[int]], nn.ModuleList],
+        make_block: Callable[[float], nn.ModuleList],
         norm_layer: Callable[[int], nn.LayerNorm],
         layer_norm_first: bool,
         alibi_biases: Dict,
@@ -138,8 +132,6 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
 
         project_features = nn.Identity()
 
-        # conv as relative positional encoder
-        # TODO introduce Transformer-XL relative positional encoder
         num_pos_layers = modality_cfg.conv_pos_depth
         k = max(3, modality_cfg.conv_pos_width // num_pos_layers)
 
@@ -165,12 +157,14 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
             TransposeLast(),
         )
 
+        if modality_cfg.conv_pos_pre_ln:
+            positional_encoder = nn.Sequential(LayerNorm(embed_dim), positional_encoder)
+
         dpr = np.linspace(
             modality_cfg.start_drop_path_rate,
             modality_cfg.end_drop_path_rate,
             modality_cfg.prenet_depth,
         )
-
         context_encoder = BlockEncoder(
             nn.ModuleList(make_block(dpr[i]) for i in range(modality_cfg.prenet_depth)),
             norm_layer(embed_dim) if not layer_norm_first else None,
@@ -179,20 +173,13 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
             modality_cfg.prenet_dropout,
         )
 
-        # TODO custom Decoder2d
         decoder = (
             Decoder1d(modality_cfg.decoder, embed_dim)
             if modality_cfg.decoder is not None
             else nn.Identity()
         )
 
-        alibi_bias_fn = partial(
-            get_alibi_bias,
-            alibi_biases=alibi_biases,
-            heads=modality_cfg.num_alibi_heads,
-            dims=modality_cfg.alibi_dims,
-            distance=modality_cfg.alibi_distance,
-        )
+        alibi_bias_fn = partial(get_alibi_bias, alibi_biases=alibi_biases)
 
         super().__init__(
             modality_cfg=modality_cfg,
@@ -206,105 +193,54 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
             get_alibi_bias=alibi_bias_fn,
         )
 
+    def convert_padding_mask(self, x, padding_mask):
+        def get_feat_extract_output_lengths(input_lengths: torch.LongTensor):
+            """
+            Computes the output length of the convolutional layers
+            """
+
+            def _conv_out_length(input_length, kernel_size, stride):
+                return torch.floor((input_length - kernel_size) / stride + 1)
+
+            for i in range(len(self.feature_enc_layers)):
+                input_lengths = _conv_out_length(
+                    input_lengths,
+                    self.feature_enc_layers[i][1],
+                    self.feature_enc_layers[i][2],
+                )
+
+            return input_lengths.to(torch.long)
+
+        if padding_mask is not None:
+            input_lengths = (1 - padding_mask.long()).sum(-1)
+            # apply conv formula to get real output_lengths
+            output_lengths = get_feat_extract_output_lengths(input_lengths)
+
+            if padding_mask.any():
+                padding_mask = torch.zeros(x.shape[:2], dtype=x.dtype, device=x.device)
+
+                # these two operations makes sure that all values
+                # before the output lengths indices are attended to
+                padding_mask[
+                    (
+                        torch.arange(padding_mask.shape[0], device=padding_mask.device),
+                        output_lengths - 1,
+                    )
+                ] = 1
+                padding_mask = (
+                    1 - padding_mask.flip([-1]).cumsum(-1).flip([-1])
+                ).bool()
+            else:
+                padding_mask = torch.zeros(
+                    x.shape[:2], dtype=torch.bool, device=x.device
+                )
+
+        return padding_mask
+
     def reset_parameters(self):
         super().reset_parameters()
+        for mod in self.project_features.children():
+            if isinstance(mod, nn.Linear):
+                mod.reset_parameters()
         if self.decoder is not None:
             self.decoder.reset_parameters()
-
-    @torch.no_grad()
-    def patchify(self, imgs):
-        """
-        imgs: (N, 3, H, W)
-        x: (N, L, patch_size**2 *3)
-        """
-        p = self.modality_cfg.patch_size
-        h = w = imgs.shape[2] // p
-        x = imgs.reshape(shape=(imgs.shape[0], 3, h, p, w, p))
-        x = torch.einsum("nchpwq->nhwpqc", x)
-        x = x.reshape(shape=(imgs.shape[0], h * w, p**2 * 3))
-
-        return x
-
-    @torch.no_grad()
-    def unpatchify(self, x):
-        """
-        x: (N, L, patch_size**2 *3)
-        imgs: (N, 3, H, W)
-        """
-        p = self.modality_cfg.patch_size
-        h = w = int(x.shape[1] ** 0.5)
-        assert h * w == x.shape[1]
-
-        x = x.reshape(shape=(x.shape[0], h, w, p, p, 3))
-        x = torch.einsum("nhwpqc->nchpwq", x)
-        imgs = x.reshape(shape=(x.shape[0], 3, h * p, h * p))
-        return imgs
-
-    # TODO compute_mask 2d
-    # def compute_mask(
-    #     self,
-    #     x,
-    #     padding_mask,
-    #     mask_seed: Optional[MaskSeed],
-    #     apply,
-    #     shape=None,
-    #     precomputed_mask=None,
-    # ):
-    #     mlen = self.modality_cfg.mask_length
-    #     if mlen <= 1:
-    #         return super().compute_mask(
-    #             x, padding_mask, mask_seed, apply, precomputed_mask
-    #         )
-
-    #     if precomputed_mask is not None:
-    #         mask = precomputed_mask
-    #     else:
-    #         from fairseq.data.data_utils import compute_block_mask_2d
-
-    #         if shape is not None:
-    #             B, L, D = shape
-    #         else:
-    #             B, L, D = x.shape
-
-    #         mask = compute_block_mask_2d(
-    #             shape=(B, L),
-    #             mask_prob=self.modality_cfg.mask_prob,
-    #             mask_length=self.modality_cfg.mask_length,
-    #             mask_prob_adjust=self.modality_cfg.mask_prob_adjust,
-    #             inverse_mask=self.modality_cfg.inverse_mask,
-    #             require_same_masks=True,
-    #             mask_dropout=self.modality_cfg.mask_dropout,
-    #         )
-
-    #         # need to same device as x
-    #         mask = mask.to(device=x.get_device())
-
-    #     mask_info = self.make_maskinfo(x, mask, shape)
-    #     if apply:
-    #         x = self.apply_mask(x, mask_info)
-
-    #     return x, mask_info
-
-    def decoder_input(self, x, mask_info):
-        if (
-            not self.modality_cfg.transformer_decoder
-            or not self.modality_cfg.enc_dec_transformer
-        ):
-            return super().decoder_input(x, mask_info)
-
-        inp_drop = self.modality_cfg.decoder.input_dropout
-        if inp_drop > 0:
-            x = F.dropout(x, inp_drop, training=self.training, inplace=True)
-
-        kv = x[:, self.modality_cfg.num_extra_tokens :]
-
-        assert self.fixed_positional_encoder is not None
-        pos = self.fixed_positional_encoder(x, None).expand(x.size(0), -1, -1)
-
-        mask = mask_info.mask.bool()
-        if self.modality_cfg.decoder.add_positions_all:
-            kv = kv + pos[~mask].view(kv.shape)
-
-        q = pos[mask].view(x.size(0), -1, x.size(-1))
-
-        return q, kv
