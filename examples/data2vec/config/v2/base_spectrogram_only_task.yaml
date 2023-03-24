@@ -57,6 +57,7 @@ optimization:
   max_update: 400000
   lr: [0.00075]
   debug_param_names: true
+  clip_norm: 1
 
 optimizer:
   _name: adam
