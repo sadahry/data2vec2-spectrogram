@@ -43,6 +43,7 @@ class D2vSpectrogramConfig(D2vModalityConfig):
         default=2,
         metadata={"help": "number of patch_size when reshaping spectrogram input"},
     )
+    patch_embed_dim: int = 512
 
     embed_dim: int = 768
 
@@ -70,18 +71,18 @@ class SpectrogramPatchEmbed(nn.Module):
         self,
         patch_size=2,
         patch_channel_dim=128,
-        embed_dim=768,
+        patch_embed_dim=512,
         bias=True,
     ):
         super().__init__()
         self.proj = nn.Conv2d(
             1,
-            embed_dim,
+            patch_embed_dim,
             kernel_size=(patch_channel_dim, patch_size),
             stride=(patch_channel_dim, patch_size),
             bias=bias,
         )
-        self.norm = nn.LayerNorm(embed_dim)
+        self.norm = nn.LayerNorm(patch_embed_dim)
         self.patch_channel_dim = patch_channel_dim
 
     def forward(self, x):
@@ -92,12 +93,14 @@ class SpectrogramPatchEmbed(nn.Module):
 
         x = x.unsqueeze(1).transpose(-1, -2)
         # faster logic for Spectrogram
-        x = self.proj(x).squeeze(2).transpose(-1, -2)
+        x = self.proj(x).squeeze(2)
         # x = self.proj(x).transpose(-1, -2)
         # if self.flatten:
-        #     x = x.flatten(2).transpose(1, 2)  # B1CT -> BTC
+        #     x = x.flatten(2)  # B1CT -> BCT
+        x = x.transpose(-1, -2)
         x = self.norm(x)
-        return x
+        x = x.transpose(-1, -2)
+        return x  # BCT
 
 
 class SpectrogramEncoder(ModalitySpecificEncoder):
@@ -118,19 +121,17 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
         local_encoder = SpectrogramPatchEmbed(
             modality_cfg.patch_size,
             modality_cfg.patch_channel_dim,
-            modality_cfg.embed_dim,
+            modality_cfg.patch_embed_dim,
         )
 
         w = local_encoder.proj.weight.data
         torch.nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
 
-        if modality_cfg.embed_dim != embed_dim:
-            local_encoder = nn.Sequential(
-                local_encoder,
-                nn.Linear(modality_cfg.embed_dim, embed_dim),
-            )
-
-        project_features = nn.Identity()
+        project_features = nn.Sequential(
+            TransposeLast(),
+            nn.LayerNorm(modality_cfg.patch_embed_dim),
+            nn.Linear(modality_cfg.patch_embed_dim, embed_dim),
+        )
 
         num_pos_layers = modality_cfg.conv_pos_depth
         k = max(3, modality_cfg.conv_pos_width // num_pos_layers)
