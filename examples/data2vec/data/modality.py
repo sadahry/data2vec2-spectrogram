@@ -13,3 +13,4 @@ class Modality(Enum):
     IMAGE = auto()
     TEXT = auto()
     SPECTROGRAM = auto()
+    SPECTROGRAM_IMAGE = auto()

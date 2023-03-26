@@ -101,13 +101,13 @@ model:
   attention_dropout: 0
   activation_dropout: 0
 
-  supported_modality: IMAGE
+  supported_modality: SPECTROGRAM_IMAGE
   cls_loss: 0.01
 
   ema_encoder_only: false
 
   modalities:
-    image:
+    spectrogram_image:
       inverse_mask: true
       # Accourding to MAE-AST
       # Set the random mask probability to 0.74 for an average of 50% masking. 

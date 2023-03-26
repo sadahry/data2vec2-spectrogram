@@ -52,6 +52,10 @@ from examples.data2vec.models.modalities.spectrogram import (
     D2vSpectrogramConfig,
     SpectrogramEncoder,
 )
+from examples.data2vec.models.modalities.spectrogram_images import (
+    D2vSpectrogramImageConfig,
+    SpectrogramImageEncoder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,7 @@ class D2vModalitiesConfig(FairseqDataclass):
     image: D2vImageConfig = D2vImageConfig()
     text: D2vTextConfig = D2vTextConfig()
     spectrogram: D2vSpectrogramConfig = D2vSpectrogramConfig()
+    spectrogram_image: D2vSpectrogramImageConfig = D2vSpectrogramImageConfig()
 
 
 @dataclass
@@ -174,6 +179,8 @@ class Data2VecMultiModel(BaseFairseqModel):
                 task = task.text_task
         elif cfg.type == Modality.SPECTROGRAM:
             enc_cls = SpectrogramEncoder
+        elif cfg.type == Modality.SPECTROGRAM_IMAGE:
+            enc_cls = SpectrogramImageEncoder
         else:
             raise Exception(f"unsupported modality {cfg.type}")
 

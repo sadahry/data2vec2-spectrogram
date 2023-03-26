@@ -30,8 +30,8 @@ from examples.data2vec.data.modality import Modality
 
 
 @dataclass
-class D2vSpectrogramConfig(D2vModalityConfig):
-    type: Modality = Modality.SPECTROGRAM
+class D2vSpectrogramImageConfig(D2vModalityConfig):
+    type: Modality = Modality.SPECTROGRAM_IMAGE
 
     patch_channel_dim: int = field(
         default=128,
@@ -69,7 +69,7 @@ class D2vSpectrogramConfig(D2vModalityConfig):
     )
 
 
-class SpectrogramPatchEmbed(nn.Module):
+class SpectrogramImagePatchEmbed(nn.Module):
     """2D Spectrogram to Patch Embedding"""
 
     def __init__(
@@ -106,13 +106,13 @@ class SpectrogramPatchEmbed(nn.Module):
         return x
 
 
-class SpectrogramEncoder(ModalitySpecificEncoder):
+class SpectrogramImageEncoder(ModalitySpecificEncoder):
 
-    modality_cfg: D2vSpectrogramConfig
+    modality_cfg: D2vSpectrogramImageConfig
 
     def __init__(
         self,
-        modality_cfg: D2vSpectrogramConfig,
+        modality_cfg: D2vSpectrogramImageConfig,
         embed_dim: int,
         make_block: Callable[[float, Optional[int], Optional[int]], nn.ModuleList],
         norm_layer: Callable[[int], nn.LayerNorm],
@@ -121,7 +121,7 @@ class SpectrogramEncoder(ModalitySpecificEncoder):
         task: Optional[FairseqTask],
     ):
 
-        local_encoder = SpectrogramPatchEmbed(
+        local_encoder = SpectrogramImagePatchEmbed(
             modality_cfg.patch_size,
             modality_cfg.patch_channel_dim,
             modality_cfg.embed_dim,
