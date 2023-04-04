@@ -67,7 +67,7 @@ optimizer:
 
 lr_scheduler:
   _name: cosine
-  warmup_updates: 8000
+  warmup_updates: 12000
 
 model:
   _name: data2vec_multi
