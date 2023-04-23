@@ -55,9 +55,9 @@ criterion:
     - masked_pct
 
 optimization:
-  max_update: 400000
-  lr: [0.00075]
-  debug_param_names: true
+  max_update: 550000  # following MAE-AST
+  lr: [0.0001]  # following MAE-AST
+  clip_norm: 10.0  # following MAE-AST
 
 optimizer:
   _name: adam
@@ -66,8 +66,8 @@ optimizer:
   weight_decay: 0.01
 
 lr_scheduler:
-  _name: cosine
-  warmup_updates: 12000
+  _name: polynomial_decay  # following MAE-AST
+  warmup_updates: 32000  # following MAE-AST
 
 model:
   _name: data2vec_multi
