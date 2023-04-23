@@ -6,7 +6,7 @@ common:
   log_interval: 200
   tensorboard_logdir: tb
   min_loss_scale: 1e-6
-  fp16_no_flatten_grads: false
+  fp16_no_flatten_grads: true  # following base_images_only_task.yaml
   user_dir: ${env:PWD}/examples/data2vec
 
 checkpoint:
@@ -55,9 +55,10 @@ criterion:
     - masked_pct
 
 optimization:
-  max_update: 400000
-  lr: [0.00075]
+  max_update: 375300  # following base_images_only_task.yaml
+  lr: [ 0.001 ]  # following base_images_only_task.yaml
   debug_param_names: true
+  clip_norm: 4  # following base_images_only_task.yaml
 
 optimizer:
   _name: adam
@@ -67,7 +68,7 @@ optimizer:
 
 lr_scheduler:
   _name: cosine
-  warmup_updates: 12000
+  warmup_updates: 50040  # following base_images_only_task.yaml
 
 model:
   _name: data2vec_multi
