@@ -8,6 +8,7 @@ import logging
 from hydra.core.config_store import ConfigStore
 from fairseq.dataclass.configs import FairseqConfig
 from omegaconf import DictConfig, OmegaConf
+from dataclasses import _MISSING_TYPE
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,8 @@ def hydra_init(cfg_name="config") -> None:
 
     for k in FairseqConfig.__dataclass_fields__:
         v = FairseqConfig.__dataclass_fields__[k].default
+        if isinstance(v, _MISSING_TYPE):
+            v = FairseqConfig.__dataclass_fields__[k].default_factory
         try:
             cs.store(name=k, node=v)
         except BaseException:
